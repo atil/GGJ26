@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace System.Runtime.CompilerServices
 {
@@ -27,9 +28,11 @@ namespace Game
         [SerializeField] private GameObject _keyPrefab;
         [SerializeField] private GameObject _doorPrefab;
         [SerializeField] private Transform _tilesParent;
+        [SerializeField] private Transform _itemsParent;
         [SerializeField] private Transform _heldKeySlot;
         [SerializeField] private Transform _topLeft;
         [SerializeField] private Transform _playerTransform;
+        [SerializeField] private Button _resetButton;
         [SerializeField] private Color[] _levelColors;
 
         const int GridSize = 5;
@@ -43,8 +46,23 @@ namespace Game
 
         public void Setup() { }
 
+        private void Cleanup()
+        {
+            _levels.Clear();
+            if (_heldKey != null) Destroy(_heldKey.Go);
+            _heldKey = null;
+            _grid = null;
+            _playerPos = new(0, 0);
+
+            foreach (Transform t in _tilesParent) Destroy(t.gameObject);
+            foreach (Transform t in _itemsParent) Destroy(t.gameObject);
+        }
+
         public void ResetGame()
         {
+            Cleanup();
+
+            _resetButton.interactable = true;
             _levels.Add(new char[GridSize, GridSize]
             {
                 { '.', '.', '.', '.', 'K' },
@@ -90,7 +108,6 @@ namespace Game
                 { '.', '.', '.', '.', '.' },
             });
 
-
             _grid = new GridCell[_levels.Count, GridSize, GridSize];
 
             for (int level = 0; level < _levels.Count; level++)
@@ -109,11 +126,13 @@ namespace Game
                         if (ch == 'K')
                         {
                             itemGo = Instantiate(_keyPrefab, new Vector3(i, j, level - ItemDepthOffset), Quaternion.identity);
+                            itemGo.transform.SetParent(_itemsParent);
                             itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
                         }
                         if (ch == 'D')
                         {
                             itemGo = Instantiate(_doorPrefab, new Vector3(i, j, level - ItemDepthOffset), Quaternion.identity);
+                            itemGo.transform.SetParent(_itemsParent);
                             itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
                         }
 
@@ -197,6 +216,12 @@ namespace Game
             _playerPos = newPos;
             _playerTransform.position += new Vector3(delta.x, delta.y);
 
+        }
+
+        public void OnResetClicked()
+        {
+            _root.OnSplashClickedPlay();
+            _resetButton.interactable = false;
         }
     }
 }

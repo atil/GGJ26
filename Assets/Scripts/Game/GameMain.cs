@@ -222,7 +222,7 @@ namespace Game
                 Destroy(_heldKey.Go);
                 _heldKey = null;
 
-                // destroy doors on this level
+                // destroy walls on this level
                 for (int i = 0; i < GridSize; i++) 
                 {
                     for (int j = 0; j < GridSize; j++)
@@ -231,7 +231,7 @@ namespace Game
                         if (cell.Item != null && cell.Item.Type == 'W')
                         {
                             Destroy(cell.Item.Go);
-                            cell.Item = null;
+                            cell.Item = new Item('.', doorLevel, null );
                         }
                     }
                 }

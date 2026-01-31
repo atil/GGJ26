@@ -9,7 +9,7 @@ namespace System.Runtime.CompilerServices
 
 namespace Game
 {
-    public record Item (char Type, int Level, GameObject Go);
+    public record Item(char Type, int Level, GameObject Go);
 
     public class GridCell
     {
@@ -27,6 +27,7 @@ namespace Game
         [SerializeField] private GameObject _tilePrefab;
         [SerializeField] private GameObject _keyPrefab;
         [SerializeField] private GameObject _doorPrefab;
+        [SerializeField] private GameObject _wallPrefab;
         [SerializeField] private Transform _tilesParent;
         [SerializeField] private Transform _itemsParent;
         [SerializeField] private Transform _heldKeySlot;
@@ -67,7 +68,7 @@ namespace Game
             {
                 { '.', '.', '.', '.', 'K' },
                 { '.', '.', '.', '.', '.' },
-                { '.', '.', '.', '.', '.' },
+                { '.', '.', 'W', '.', '.' },
                 { '.', '.', '.', '.', '.' },
                 { '.', '.', '.', '.', 'D' },
             });
@@ -116,22 +117,21 @@ namespace Game
                 {
                     for (int j = 0; j < GridSize; j++)
                     {
-                        char ch = _levels[level][i,j];
+                        char ch = _levels[level][i, j];
 
                         GameObject tileGo = Instantiate(_tilePrefab, _tilesParent);
                         tileGo.transform.position = new Vector3(i, j, level);
                         tileGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
 
                         GameObject itemGo = null;
-                        if (ch == 'K')
+                        GameObject itemPrefab = null;
+                        if (ch == 'K') itemPrefab = _keyPrefab;
+                        if (ch == 'D') itemPrefab = _doorPrefab;
+                        if (ch == 'W') itemPrefab = _wallPrefab;
+
+                        if (itemPrefab != null)
                         {
-                            itemGo = Instantiate(_keyPrefab, new Vector3(i, j, level - ItemDepthOffset), Quaternion.identity);
-                            itemGo.transform.SetParent(_itemsParent);
-                            itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
-                        }
-                        if (ch == 'D')
-                        {
-                            itemGo = Instantiate(_doorPrefab, new Vector3(i, j, level - ItemDepthOffset), Quaternion.identity);
+                            itemGo = Instantiate(itemPrefab, new Vector3(i, j, level - ItemDepthOffset), Quaternion.identity);
                             itemGo.transform.SetParent(_itemsParent);
                             itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
                         }
@@ -181,16 +181,24 @@ namespace Game
             }
 
             GridCell newCell = GetTopCellAt(newPos.x, newPos.y);
+            if (newCell.Item.Type == 'W')
+            {
+                return;
+            }
             if (newCell.Item.Type == 'D' && (_heldKey == null || _heldKey.Level != newCell.Item.Level))
             {
                 return; // Locked door
             }
 
+            //
+            // Move occurred
+            //
+
             GridCell prevCell = GetTopCellAt(_playerPos.x, _playerPos.y);
             Destroy(prevCell.TileGo);
             prevCell.IsDestroyed = true;
 
-            if (newCell.Item.Type == 'K')
+            if (newCell.Item.Type == 'K') // Grab key
             {
                 if (_heldKey != null) // Leave the held key on the revealed cell
                 {
@@ -204,13 +212,30 @@ namespace Game
                 newCell.Item = null;
                 _jamkit.Tween(new TweenMove(_heldKey.Go.transform, _heldKeySlot.position, 0.5f, AnimationCurve.EaseInOut(0, 0, 1, 1)));
             }
-            else if (newCell.Item.Type == 'D')
+            else if (newCell.Item.Type == 'D') // Go through the door
             {
+                int doorLevel = newCell.Item.Level;
+
                 Debug.Assert(_heldKey != null && _heldKey.Level == newCell.Item.Level);
                 Destroy(newCell.Item.Go);
                 newCell.Item = null;
                 Destroy(_heldKey.Go);
                 _heldKey = null;
+
+                // destroy doors on this level
+                for (int i = 0; i < GridSize; i++) 
+                {
+                    for (int j = 0; j < GridSize; j++)
+                    {
+                        GridCell cell = _grid[doorLevel, i, j];
+                        if (cell.Item != null && cell.Item.Type == 'W')
+                        {
+                            Destroy(cell.Item.Go);
+                            cell.Item = null;
+                        }
+                    }
+                }
+
             }
 
             _playerPos = newPos;

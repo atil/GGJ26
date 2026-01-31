@@ -687,7 +687,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.84705883, g: 0.87058824, b: 0.9137255, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1732,6 +1732,7 @@ MonoBehaviour:
   _tilePrefab: {fileID: 2950557947738113022, guid: ebf6b78138c55934cbef0a9e0d692dc9, type: 3}
   _keyPrefab: {fileID: 2105182629703025075, guid: e359090503a8e0b4aa46a2bc37ee366e, type: 3}
   _doorPrefab: {fileID: 2741846675947092882, guid: d08f21bbd6bf60d4a83c989862b7c317, type: 3}
+  _wallPrefab: {fileID: 2741846675947092882, guid: 1b2604e2b8ae01744bc15bc29f5a5e58, type: 3}
   _tilesParent: {fileID: 1469865848}
   _itemsParent: {fileID: 1301228090}
   _heldKeySlot: {fileID: 1255486271}

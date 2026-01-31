@@ -45,6 +45,9 @@ namespace Game
         Item _heldKey = null;
         const float ItemDepthOffset = 0.1f;
 
+        const int NumDoors = 5;
+        int OpenedDoors = 0;
+
         public void Setup() { }
 
         private void Cleanup()
@@ -109,6 +112,15 @@ namespace Game
                 { '.', '.', '.', 'W', '.' },
             });
 
+            _levels.Add(new char[GridSize, GridSize]
+            {
+                { 'W', 'W', 'W', 'W', 'W' },
+                { 'W', 'D', 'W', 'W', 'W' },
+                { 'W', 'W', 'W', 'W', 'W' },
+                { 'W', 'W', 'W', 'W', 'W' },
+                { 'W', 'W', 'W', 'W', 'W' },
+            });
+
             _grid = new GridCell[_levels.Count, GridSize, GridSize];
 
             for (int level = 0; level < _levels.Count; level++)
@@ -143,6 +155,7 @@ namespace Game
             }
             _playerTransform.position = new Vector3(_playerPos.x, _playerPos.y, -0.2f);
 
+            OpenedDoors = 0;
         }
 
         public void Update()
@@ -234,6 +247,13 @@ namespace Game
                             cell.Item = new Item('.', doorLevel, null );
                         }
                     }
+                }
+
+                // last door is opened
+                OpenedDoors++;
+                if (OpenedDoors >= NumDoors)
+                {
+                    _root.OnGameDone();
                 }
 
             }

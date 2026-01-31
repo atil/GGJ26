@@ -984,6 +984,37 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!1 &1255486270
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1255486271}
+  m_Layer: 0
+  m_Name: HeldKeySlot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1255486271
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1255486270}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 2, y: -1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1916531313}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1313691339
 GameObject:
   m_ObjectHideFlags: 0
@@ -1378,6 +1409,7 @@ Transform:
   - {fileID: 1469865848}
   - {fileID: 2103516069}
   - {fileID: 2045211384}
+  - {fileID: 1255486271}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1916531314
@@ -1393,8 +1425,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _root: {fileID: 283082028}
+  _jamkit: {fileID: 1042202867}
   _tilePrefab: {fileID: 2950557947738113022, guid: ebf6b78138c55934cbef0a9e0d692dc9, type: 3}
+  _keyPrefab: {fileID: 2105182629703025075, guid: e359090503a8e0b4aa46a2bc37ee366e, type: 3}
+  _doorPrefab: {fileID: 2741846675947092882, guid: d08f21bbd6bf60d4a83c989862b7c317, type: 3}
   _tilesParent: {fileID: 1469865848}
+  _heldKeySlot: {fileID: 1255486271}
   _topLeft: {fileID: 2103516069}
   _playerTransform: {fileID: 2045211384}
   _levelColors:
@@ -1557,7 +1593,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0.05291, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.8, y: 0.8, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1916531313}

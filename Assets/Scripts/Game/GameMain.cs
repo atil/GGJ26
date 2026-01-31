@@ -1,14 +1,31 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+namespace System.Runtime.CompilerServices
+{
+    public static class IsExternalInit { }
+}
+
 namespace Game
 {
+    public record Item (char Type, int Level, GameObject Go);
+
+    public class GridCell
+    {
+        public Item Item;
+        public GameObject TileGo;
+        public GameObject ItemGo;
+    }
+
     public class GameMain : MonoBehaviour
     {
         [SerializeField] private Root _root;
+        [SerializeField] private JamKit _jamkit;
         [SerializeField] private GameObject _tilePrefab;
         [SerializeField] private GameObject _keyPrefab;
+        [SerializeField] private GameObject _doorPrefab;
         [SerializeField] private Transform _tilesParent;
+        [SerializeField] private Transform _heldKeySlot;
         [SerializeField] private Transform _topLeft;
         [SerializeField] private Transform _playerTransform;
         [SerializeField] private Color[] _levelColors;
@@ -16,12 +33,14 @@ namespace Game
         const int GridSize = 5;
 
         List<string[]> _levels = new();
-        Vector2Int _playerPos = new (0, 0);
+        Vector2Int _playerPos = new(0, 0);
 
-        (int, char)[,] grid = new (int, char)[GridSize, GridSize];
-        GameObject[,] _tileGos = new GameObject[GridSize, GridSize];
+        GridCell[,,] _grid;
+        Item _heldKey = null;
 
-        public void Setup()
+        public void Setup() { }
+
+        public void ResetGame()
         {
             _levels.Add(new string[]
             {
@@ -47,23 +66,39 @@ namespace Game
                 ".....",
                 "..D..",
             });
-        }
 
-        public void ResetGame()
-        {
-            for (int i = 0; i < GridSize; i++)
+            _grid = new GridCell[_levels.Count, GridSize, GridSize];
+
+            for (int level = 0; level < _levels.Count; level++)
             {
-                for (int j = 0; j < GridSize; j++)
+                for (int i = 0; i < GridSize; i++)
                 {
-                    grid[i, j] = (0, '.');
+                    for (int j = 0; j < GridSize; j++)
+                    {
+                        char ch = _levels[level][i][j];
 
-                    GameObject tileGo = Instantiate(_tilePrefab, _tilesParent);
-                    tileGo.transform.position = new Vector3(i, j, 0);
-                    tileGo.GetComponent<SpriteRenderer>().material.color = _levelColors[0];
-                    _tileGos[i, j] = tileGo;
+                        GameObject tileGo = Instantiate(_tilePrefab, _tilesParent);
+                        tileGo.transform.position = new Vector3(i, j, level);
+                        tileGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
+
+                        GameObject itemGo = null;
+                        if (ch == 'K')
+                        {
+                            itemGo = Instantiate(_keyPrefab, new Vector3(i, j, level - 0.1f), Quaternion.identity);
+                            itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
+                        }
+                        if (ch == 'D')
+                        {
+                            itemGo = Instantiate(_doorPrefab, new Vector3(i, j, level - 0.1f), Quaternion.identity);
+                            itemGo.GetComponent<SpriteRenderer>().material.color = _levelColors[level];
+                        }
+
+                        _grid[level, i, j] = new GridCell() { TileGo = tileGo, ItemGo = itemGo, Item = new(ch, level, itemGo) };
+
+                    }
                 }
             }
-            _playerTransform.position = new Vector3(_playerPos.x, _playerPos.y, -0.1f);
+            _playerTransform.position = new Vector3(_playerPos.x, _playerPos.y, -0.2f);
 
         }
 
@@ -83,18 +118,50 @@ namespace Game
             if (delta == Vector2Int.zero) return;
 
             Vector2Int newPos = _playerPos + delta;
+
             if (newPos.x < 0 || newPos.x >= GridSize || newPos.y < 0 || newPos.y >= GridSize)
             {
-                return;
+                return; // Grid edges
             }
 
-            int newDepth = grid[_playerPos.x, _playerPos.y].Item1 + 1;
-            grid[_playerPos.x, _playerPos.y].Item1 = newDepth;
+            GridCell GetTopCellAt(int i, int j)
+            {
+                for (int level = 0; level < _levels.Count; level++)
+                {
+                    GridCell cell = _grid[level, i, j];
+                    if (cell.TileGo != null)
+                    {
+                        return cell;
+                    }
+                }
+                return null;
+            }
 
-            GameObject go = _tileGos[_playerPos.x, _playerPos.y];
-            int newColorIndex = newDepth;
-            if (newColorIndex < 0) newColorIndex = _levelColors.Length - 1;
-            go.GetComponent<SpriteRenderer>().material.color = _levelColors[newColorIndex];
+            GridCell newCell = GetTopCellAt(newPos.x, newPos.y);
+            if (newCell.Item.Type == 'D' && (_heldKey == null || _heldKey.Level != newCell.Item.Level))
+            {
+                return; // Locked door
+            }
+
+
+            GridCell prevCell = GetTopCellAt(_playerPos.x, _playerPos.y);
+            Destroy(prevCell.TileGo);
+
+            if (newCell.Item.Type == 'K')
+            {
+                _heldKey = newCell.Item;
+                newCell.Item = null;
+                _jamkit.Tween(new TweenMove(_heldKey.Go.transform, _heldKeySlot.position, 0.5f, AnimationCurve.EaseInOut(0, 0, 1, 1)));
+
+                // TODO switch keys
+            }
+            else if (newCell.Item.Type == 'D')
+            {
+                Debug.Assert(_heldKey != null && _heldKey.Level == newCell.Item.Level);
+                Destroy(newCell.Item.Go);
+                newCell.Item = null;
+            }
+
             _playerPos = newPos;
             _playerTransform.position += new Vector3(delta.x, delta.y);
 

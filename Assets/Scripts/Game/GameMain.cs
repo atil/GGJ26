@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,6 +35,7 @@ namespace Game
         [SerializeField] private Transform _topLeft;
         [SerializeField] private Transform _playerTransform;
         [SerializeField] private Button _resetButton;
+        [SerializeField] private TextMeshProUGUI _stepsText;
         [SerializeField] private Color[] _levelColors;
 
         const int GridSize = 5;
@@ -46,7 +48,7 @@ namespace Game
         const float ItemDepthOffset = 0.1f;
 
         const int NumDoors = 5;
-        int OpenedDoors = 0;
+        int _openedDoors = 0;
 
         public void Setup() { }
 
@@ -57,6 +59,9 @@ namespace Game
             _heldKey = null;
             _grid = null;
             _playerPos = new(0, 0);
+            _openedDoors = 0;
+            _root.MoveCount = 0;
+            _stepsText.text = "";
 
             foreach (Transform t in _tilesParent) Destroy(t.gameObject);
             foreach (Transform t in _itemsParent) Destroy(t.gameObject);
@@ -64,6 +69,8 @@ namespace Game
 
         public void ResetGame()
         {
+            _resetButton.gameObject.SetActive(true);
+            Cursor.visible = false;
             Cleanup();
 
             _resetButton.interactable = true;
@@ -155,14 +162,21 @@ namespace Game
             }
             _playerTransform.position = new Vector3(_playerPos.x, _playerPos.y, -0.2f);
 
-            OpenedDoors = 0;
+            _openedDoors = 0;
         }
 
         public void Update()
         {
+#if UNITY_EDITOR
             if (Input.GetKeyDown(KeyCode.K))
             {
                 _root.OnGameDone();
+            }
+#endif
+
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                OnResetClicked();
             }
 
             Vector2Int delta = Vector2Int.zero;
@@ -213,17 +227,18 @@ namespace Game
 
             if (newCell.Item.Type == 'K') // Grab key
             {
+                const float KeyTweenDuration = 0.5f;
                 if (_heldKey != null) // Leave the held key on the revealed cell
                 {
                     GridCell revealedCell = GetTopCellAt(_playerPos.x, _playerPos.y);
                     revealedCell.Item = _heldKey;
                     Vector3 tweenTarget = new(revealedCell.Coord.y, revealedCell.Coord.z, revealedCell.Coord.x - ItemDepthOffset);
-                    _jamkit.Tween(new TweenMove(_heldKey.Go.transform, tweenTarget, 0.5f, AnimationCurve.EaseInOut(0, 0, 1, 1)));
+                    _jamkit.Tween(new TweenMove(_heldKey.Go.transform, tweenTarget, KeyTweenDuration, AnimationCurve.EaseInOut(0, 0, 1, 1)));
                 }
 
                 _heldKey = newCell.Item;
                 newCell.Item = null;
-                _jamkit.Tween(new TweenMove(_heldKey.Go.transform, _heldKeySlot.position, 0.5f, AnimationCurve.EaseInOut(0, 0, 1, 1)));
+                _jamkit.Tween(new TweenMove(_heldKey.Go.transform, _heldKeySlot.position, KeyTweenDuration, AnimationCurve.EaseInOut(0, 0, 1, 1)));
             }
             else if (newCell.Item.Type == 'D') // Go through the door
             {
@@ -235,7 +250,7 @@ namespace Game
                 Destroy(_heldKey.Go);
                 _heldKey = null;
 
-                // destroy walls on this level
+                // Destroy walls on this level
                 for (int i = 0; i < GridSize; i++) 
                 {
                     for (int j = 0; j < GridSize; j++)
@@ -249,10 +264,13 @@ namespace Game
                     }
                 }
 
-                // last door is opened
-                OpenedDoors++;
-                if (OpenedDoors >= NumDoors)
+                // Last door is opened
+                _openedDoors++;
+                if (_openedDoors >= NumDoors)
                 {
+                    Cursor.visible = true;
+                    _resetButton.gameObject.SetActive(false);
+                    _stepsText.text = "";
                     _root.OnGameDone();
                 }
 
@@ -260,7 +278,8 @@ namespace Game
 
             _playerPos = newPos;
             _playerTransform.position += new Vector3(delta.x, delta.y);
-
+            _root.MoveCount++;
+            if (_openedDoors < NumDoors) _stepsText.text = $"[{_root.MoveCount}]";
         }
 
         public void OnResetClicked()

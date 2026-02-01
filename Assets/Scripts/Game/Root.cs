@@ -19,6 +19,8 @@ namespace Game
         [SerializeField] private GameMain _gameMain;
         [SerializeField] private Intermission _intermission;
 
+        public int MoveCount = 0;
+
         private void Start()
         {
             _splash.Setup();

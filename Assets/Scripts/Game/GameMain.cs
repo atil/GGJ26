@@ -1,4 +1,8 @@
-﻿using System.Collections.Generic;
+﻿// TODO
+// - sfx
+// - build
+
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -25,6 +29,8 @@ namespace Game
     {
         [SerializeField] private Root _root;
         [SerializeField] private JamKit _jamkit;
+        [SerializeField] private Transform _cameraStart;
+        [SerializeField] private Transform _cameraLook;
         [SerializeField] private GameObject _tilePrefab;
         [SerializeField] private GameObject _keyPrefab;
         [SerializeField] private GameObject _doorPrefab;
@@ -37,6 +43,9 @@ namespace Game
         [SerializeField] private Button _resetButton;
         [SerializeField] private TextMeshProUGUI _stepsText;
         [SerializeField] private Color[] _levelColors;
+        [SerializeField] private AnimationCurve _playerMoveCurve;
+        [SerializeField] private AnimationCurve _goDestroyCurve;
+        [SerializeField] private AnimationCurve _cameraIntroCurve;
 
         const int GridSize = 5;
 
@@ -46,9 +55,11 @@ namespace Game
         GridCell[,,] _grid;
         Item _heldKey = null;
         const float ItemDepthOffset = 0.1f;
+        const float PlayerDepthOffset = 0.05f;
 
         const int NumDoors = 5;
         int _openedDoors = 0;
+        bool _stuck = false;
 
         public void Setup() { }
 
@@ -62,6 +73,7 @@ namespace Game
             _openedDoors = 0;
             _root.MoveCount = 0;
             _stepsText.text = "";
+            _stuck = false;
 
             foreach (Transform t in _tilesParent) Destroy(t.gameObject);
             foreach (Transform t in _itemsParent) Destroy(t.gameObject);
@@ -163,6 +175,20 @@ namespace Game
             _playerTransform.position = new Vector3(_playerPos.x, _playerPos.y, -0.2f);
 
             _openedDoors = 0;
+
+            PlayCameraIntro();
+        }
+
+        void PlayCameraIntro()
+        {
+            const float CameraIntroDuration = 2.3f;
+            Transform camTr = _root.Camera.transform;
+            Vector3 camDefaultPos = camTr.position;
+            camTr.position = _cameraStart.position;
+            camTr.forward = _cameraLook.position - _cameraStart.position;
+
+            _jamkit.Tween(new TweenMove(camTr, camDefaultPos, CameraIntroDuration, _cameraIntroCurve));
+            _jamkit.Tween(new TweenRotate(camTr, Vector3.zero, CameraIntroDuration, _cameraIntroCurve));
         }
 
         public void Update()
@@ -170,7 +196,7 @@ namespace Game
 #if UNITY_EDITOR
             if (Input.GetKeyDown(KeyCode.K))
             {
-                _root.OnGameDone();
+                OnGameDone();
             }
 #endif
 
@@ -179,19 +205,36 @@ namespace Game
                 OnResetClicked();
             }
 
+            if (_stuck) return;
+
             Vector2Int delta = Vector2Int.zero;
-            if (Input.GetKeyDown(KeyCode.W)) delta.y += 1;
-            if (Input.GetKeyDown(KeyCode.S)) delta.y -= 1;
-            if (Input.GetKeyDown(KeyCode.A)) delta.x -= 1;
-            if (Input.GetKeyDown(KeyCode.D)) delta.x += 1;
+            if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) delta.y += 1;
+            if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)) delta.y -= 1;
+            if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow)) delta.x -= 1;
+            if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow)) delta.x += 1;
 
             if (delta == Vector2Int.zero) return;
 
+            void PlayNopeEffect(Vector2Int nopeCell)
+            {
+                const float NopeDuration = 0.05f;
+                Vector3 src = new Vector3(_playerPos.x, _playerPos.y, -PlayerDepthOffset);
+                Vector3 nopeGoPos = new Vector3(nopeCell.x, nopeCell.y, -PlayerDepthOffset);
+                Vector3 dir = (nopeGoPos - src).normalized;
+                Vector3 tweenTarget = src + dir * 0.3f;
+                _jamkit.TweenSeq(new TweenBase[]
+                {
+                    new TweenMove(_playerTransform, tweenTarget, NopeDuration, _playerMoveCurve),
+                    new TweenMove(_playerTransform, src, NopeDuration, _playerMoveCurve),
+                });
+            }
+
             Vector2Int newPos = _playerPos + delta;
 
-            if (newPos.x < 0 || newPos.x >= GridSize || newPos.y < 0 || newPos.y >= GridSize)
+            if (newPos.x < 0 || newPos.x >= GridSize || newPos.y < 0 || newPos.y >= GridSize) // Grid edges
             {
-                return; // Grid edges
+                PlayNopeEffect(newPos);
+                return; 
             }
 
             GridCell GetTopCellAt(int i, int j)
@@ -208,12 +251,15 @@ namespace Game
             }
 
             GridCell newCell = GetTopCellAt(newPos.x, newPos.y);
+
             if (newCell.Item.Type == 'W')
             {
+                PlayNopeEffect(newPos);
                 return;
             }
             if (newCell.Item.Type == 'D' && (_heldKey == null || _heldKey.Level != newCell.Item.Level))
             {
+                PlayNopeEffect(newPos);
                 return; // Locked door
             }
 
@@ -222,7 +268,7 @@ namespace Game
             //
 
             GridCell prevCell = GetTopCellAt(_playerPos.x, _playerPos.y);
-            Destroy(prevCell.TileGo);
+            DestroyGo(prevCell.TileGo);
             prevCell.IsDestroyed = true;
 
             if (newCell.Item.Type == 'K') // Grab key
@@ -231,6 +277,16 @@ namespace Game
                 if (_heldKey != null) // Leave the held key on the revealed cell
                 {
                     GridCell revealedCell = GetTopCellAt(_playerPos.x, _playerPos.y);
+                    if (revealedCell.Item.Type != '.') // oops
+                    {
+                        _stuck = true;
+                        _jamkit.TweenSeq(new TweenBase[]
+                        {
+                            new TweenDelay(2.0f),
+                            new TweenCallback(() => OnResetClicked())
+                        });
+                    }
+
                     revealedCell.Item = _heldKey;
                     Vector3 tweenTarget = new(revealedCell.Coord.y, revealedCell.Coord.z, revealedCell.Coord.x - ItemDepthOffset);
                     _jamkit.Tween(new TweenMove(_heldKey.Go.transform, tweenTarget, KeyTweenDuration, AnimationCurve.EaseInOut(0, 0, 1, 1)));
@@ -245,21 +301,21 @@ namespace Game
                 int doorLevel = newCell.Item.Level;
 
                 Debug.Assert(_heldKey != null && _heldKey.Level == newCell.Item.Level);
-                Destroy(newCell.Item.Go);
+                DestroyGo(newCell.Item.Go);
                 newCell.Item = null;
-                Destroy(_heldKey.Go);
+                DestroyGo(_heldKey.Go);
                 _heldKey = null;
 
                 // Destroy walls on this level
-                for (int i = 0; i < GridSize; i++) 
+                for (int i = 0; i < GridSize; i++)
                 {
                     for (int j = 0; j < GridSize; j++)
                     {
                         GridCell cell = _grid[doorLevel, i, j];
                         if (cell.Item != null && cell.Item.Type == 'W')
                         {
-                            Destroy(cell.Item.Go);
-                            cell.Item = new Item('.', doorLevel, null );
+                            DestroyGo(cell.Item.Go);
+                            cell.Item = new Item('.', doorLevel, null);
                         }
                     }
                 }
@@ -268,22 +324,42 @@ namespace Game
                 _openedDoors++;
                 if (_openedDoors >= NumDoors)
                 {
-                    Cursor.visible = true;
-                    _resetButton.gameObject.SetActive(false);
-                    _stepsText.text = "";
-                    _root.OnGameDone();
+                    OnGameDone();
                 }
 
             }
 
             _playerPos = newPos;
-            _playerTransform.position += new Vector3(delta.x, delta.y);
+
+            const float PlayerMoveTweenDuration = 0.3f;
+            Vector3 newPlayerGoPos = new(_playerPos.x, _playerPos.y, -PlayerDepthOffset);
+            _jamkit.Tween(new TweenMove(_playerTransform, newPlayerGoPos, PlayerMoveTweenDuration, _playerMoveCurve));
+
             _root.MoveCount++;
             if (_openedDoors < NumDoors) _stepsText.text = $"[{_root.MoveCount}]";
         }
 
+        void DestroyGo(GameObject go)
+        {
+            const float DestroyEffectDuration = 0.2f;
+            _jamkit.TweenSeq(new TweenBase[]
+            {
+                new TweenScale(go.transform, Vector3.one * 0.01f, DestroyEffectDuration, _goDestroyCurve),
+                new TweenCallback(() => Destroy(go))
+            });
+        }
+
+        void OnGameDone()
+        {
+            Cursor.visible = true;
+            _resetButton.gameObject.SetActive(false);
+            _stepsText.text = "";
+            _root.OnGameDone();
+        }
+
         public void OnResetClicked()
         {
+            _stuck = true;
             _root.OnSplashClickedPlay();
             _resetButton.interactable = false;
         }

@@ -14,6 +14,7 @@ namespace Game
         [SerializeField] private JamKit _jamKit;
         [SerializeField] private Camera _camera;
         [SerializeField] private Image _coverImage;
+        public Camera Camera => _camera;
 
         [SerializeField] private Splash _splash;
         [SerializeField] private GameMain _gameMain;
